@@ -1,0 +1,21 @@
+---
+- name: deploy load-balancer 
+  hosts: frontends
+  become: true
+  roles: 
+    - common-stuff
+    - haproxy
+
+- name: deploy tomcat
+  become: true
+  hosts: apps
+  roles: 
+    - common-stuff
+    - application-servers
+
+- name: deploy postgres
+  become: true
+  hosts: appdbs
+  roles: 
+    - common-stuff
+    - db-server

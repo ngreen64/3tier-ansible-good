@@ -1,0 +1,143 @@
+---
+# Bad ansible! This playbook is an example of poor/bad practices!
+# Bad practices may include:
+#
+#   Poor formatting and structure
+#   Poor use of YAML - but good enough to parse
+#   Inconsistent style
+#   Incorrect use of modules
+#   Poor module choice
+#   Unclear names
+#   Hard coding / poor use of variables
+#   Roles - what are roles?
+#   Bare variables
+#   No use of handlers
+
+- name: Configuration of three tier repo
+  hosts: all
+  gather_facts: false # remove later! speeds up testing
+  become: true
+
+  tasks:
+  - name: enable repos
+    template:
+      src: ./open_three-tier-app.repo
+      dest: /etc/yum.repos.d/open_three-tier-app.repo
+      mode: 0644
+
+- name: deploy haproxy
+  hosts: frontends
+  gather_facts: false # remove later! speeds up testing
+  become: true
+
+  tasks:
+  - name: install http
+    package:
+      name: httpd
+      state: latest
+  - name: install HAProxy
+    yum:
+      name: haproxy
+      state: latest
+  - name: enable HAProxy
+    service:
+      name: haproxy
+      state: started
+  - name: configure haproxy
+    template:
+      src: ./haproxy.cfg.j2
+      dest: /etc/haproxy/haproxy.cfg
+  - name: restart HAproxy
+    service:
+      name: haproxy
+      state: restarted
+
+
+- name: deploy tomcat and static content
+  hosts: apps
+  gather_facts: false
+  become: true
+  vars: 
+    webroot: /usr/share/tomcat/webapps/ansible
+
+  tasks:
+  - name: install tomcat
+    yum:
+      name: tomcat
+      state: latest
+  - name: enable tomcat at boot
+    service:
+      name: tomcat
+      enabled: yes
+
+  - name: create ansible tomcat directory
+    file:
+      path: "{{ webroot }}"
+      state: directory
+
+  - name: copy static index.html to tomcat webapps/ansible/index.html
+    template:
+      src: index.html.j2
+      dest: "{{ webroot }}/index.html"
+      mode: 0644
+
+  - name: start tomcat
+    service:
+      name: tomcat
+      state: started
+
+#  - name: copy static index.html.app1 to tomcat webapps/ansible/index.html
+#    template:
+#      src: index.html."{{ inventory_hostname }}"
+#      dest: "{{ webroot }}/index.html
+
+- name: deploy postgres
+  hosts: apps
+  gather_facts: false
+  become: true
+  hosts: appdbs
+
+  tasks:
+  - name: install postgresql server
+    yum: 
+      name: postgresql-server
+      state: latest
+
+  - name: enable postgresql-server at boot
+    service:
+      name: postgresql
+      enabled: yes
+
+#  - name: tell user to finish setting up postgres
+#    debug:
+#      msg: "Either uncomment the postgres setup or manually login and initialize"
+
+  - name: initialize postgres if it has not been done before
+    command: postgresql-setup initdb creates=/var/lib/pgsql/data/postgresql.conf
+
+ # only run the next 2 tasks once!
+#  - name: initilize postgres
+#    command: postgresql-setup initdb
+#  - name: initilize postgres some more
+#    command: chkconfig postgresql on
+
+  - name: start postgres
+    service:
+      name: postgresql
+      state: started
+
+- name: deploy apache
+  hosts: apps
+  gather_facts: false
+  become: true
+
+  tasks:
+  - name: install apache
+    yum:
+      name: httpd
+      state: latest
+  - name: enable apache at boot and start it
+    service:
+      name: httpd
+      enabled: yes
+      state: started

@@ -1,0 +1,16 @@
+---
+# tasks file for test-web-frontend
+
+- name: "poll web URL {{ haproxy_url }}"
+  uri:
+    url: "{{ haproxy_url }}"
+    return_content: yes
+    timeout: 3
+    status_code: 200
+  register: result
+  retries: 20
+  delay: 1
+
+- fail:
+    msg: 'service is not happy'
+  when: haproxy_check_search_string not in result.content
